@@ -1,0 +1,7 @@
+.git
+.Python
+flask/
+lib/
+bin/
+include/
+*.pyc
