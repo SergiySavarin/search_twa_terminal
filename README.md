@@ -1,0 +1,1 @@
+Application for searching words or phrases in twitter tweets using twitter REST API, Application-only-authorization. All process work by terminal from search.py file. Just run it like ./search.py. Included crypto module for application users login.
