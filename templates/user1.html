@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}Flasky{% endblock %}
+
+{% block page_content %}
+<div class="page-header">
+	<h1>Welcome{% if name %}{{ ', ' + name }}{% endif %}</h1>
+</div>
+<div>
+	<p>Files in your working directory:</p>
+</div>	
+	{% if dir_list == [] %}
+		<p>Not found any files</p>
+	{% else %}
+		{% for file in dir_list %}
+			<p>{{ file }}</p>
+		{% endfor %}
+	{% endif %}
+{{ wtf.quick_form(form) }}
+{% endblock %}
