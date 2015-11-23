@@ -6,8 +6,10 @@ import oauth2
 import os
 import sys
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from time import sleep
 from cription import CryptObject
+from user_auth import Client
 
 class UserSearch(object):
 	''' Class realize user login by terminal,
@@ -21,6 +23,7 @@ class UserSearch(object):
 		'''
 		self.auth_data_file = 'tk.txt'
 		self.credentials_file = 'credentials.txt'
+		self.user_folder_name = ''
 
 	def _date_range(self):
 		''' Forming list of dates for search by date.
@@ -41,7 +44,7 @@ class UserSearch(object):
 		'''Get twitter authorization data from file'''
 		auth_data = []
 		for i in open(self.auth_data_file, 'r'):
-			token.append(i.rstrip())
+			auth_data.append(i.rstrip())
 		return auth_data
 
 	def login(self):
@@ -62,12 +65,15 @@ class UserSearch(object):
 															passwd, x[:-1])]	#func return True if valid
 				if len(cred_data) == 1:
 					print 'Successfuly logined'
-					user_folder_name = cred_data[0][:10]
+					if self.user_folder_name == '':
+						self.user_folder_name = cred_data[0][:10]						#use first ten symbols for user's folder name for saving wprking files
 					show = self.terminal_interaction
-					if os.listdir(user_folder_name) == []:
+					if os.listdir(self.user_folder_name) == []:
 						print 'Your working directory is empty'
 					else:
-						show('ls %s' % user_folder_name)
+						print 'Files in your working directory:'
+						show('ls %s' % self.user_folder_name)
+						print
 					break
 				print 'Your login or password is wrong try one more time!'
 		else:
@@ -88,14 +94,17 @@ class UserSearch(object):
 			print 'Incorrect password'
 		credentials = CryptObject()
 		data = credentials.encrypt_user_credentials(name, passwd1)
-		user_folder_name = data[:10]								#use first ten symbols for user's folder name for saving wprking files
+		self.user_folder_name = data[:10]								#use first ten symbols for user's folder name for saving wprking files
 		create = self.terminal_interaction
-		create('mkdir %s' % user_folder_name)						#create working folder
+		create('mkdir %s' % self.user_folder_name)						#create working folder
 		with open(self.credentials_file, 'a') as cred_data:
 			cred_data.write(data + '\n')
 		cred_data.close()
+		self.login()
 
-
+	def search_tweets(self):
+		self.login()
+		self.colect_users_data_for_last_7_days()
 	# def get_request(date, method='GET'):
 	# 	consumer = oauth2.Consumer(key=get_auth_data()[0], 
 	# 							secret=get_auth_data()[1])
@@ -116,14 +125,21 @@ class UserSearch(object):
 		search = 'search/tweets.json'
 		query = '?q=' + phrase
 		result_type = '&result_type=mixed'
-		count = '&count=50'
+		count = '&count=5'
 		date = '&until='
-		search_url = '%s/%s/%s' + query + result_type + count + date % \
-					(api_endpoint, api_version, search)
+		search_url = '%s/%s/%s' % (api_endpoint, api_version, search) + \
+						query + result_type + count + date
 		return search_url
 
 	def get_phrase(self):
-		phrase = raw_input('Enter your word or phrase for search: ')
+		while True:
+			phrase = raw_input('Enter your word or phrase for search: ')
+			if phrase == '' or phrase == ' ':
+				print 'Can`t be empty, enter phrase.'
+				continue
+			else:
+				break
+
 		return phrase
 
 	def colect_user_data(self, tweets_data, users_data):
@@ -145,21 +161,51 @@ class UserSearch(object):
 			user_data.append(user['text'].encode('utf-8'))
 			user_data.append(user_profile_data['location'].encode('utf-8'))
 			user_data.append(user_profile_data['lang'].encode('utf-8'))
-			try:
-				user_data.append(user_profile_data['time_zone'].encode('utf-8'))
-			except:
-				user_data.append(user_profile_data['time_zone'])
+			if user_profile_data['time_zone'] == None:
+				user_data.append('None')
+			# try:
+			# 	user_data.append(user_profile_data['time_zone'].encode('utf-8'))
+			# except:
+			# 	user_data.append(user_profile_data['time_zone'])
 			if user_data not in users_data:
 				users_data.append(user_data)
 		return users_data
 
-	def colect_users_data_for_last_7_days(self):
+	def colect_users_data_for_last_7_days(self, geo=''):
+
+		url = self.search_tweets_url(self.get_phrase())
+		consumer_key, consumer_secret = self.get_auth_data()[:2]
+		client = Client(consumer_key,consumer_secret)
+		remaining = client.check_rate_limit
 		users_data = []
-		for date in _date_range():
-			content = json.loads(get_request(date))
+
+		for date in self._date_range():
+			if remaining():
+				content = client.request(url + date + geo)
+				sleep(2.1)
+			else:
+				sleep(900)
 			tweets_data = content['statuses']
-			users_data = colect_user_data(tweets_data, users_data)
+			users_data = self.colect_user_data(tweets_data, users_data)
+		#save tweets raw data into user folder and crypt saved file
+		self.save_user_file(users_data)
 		return users_data
+
+	def save_user_file(self, users_data, file_name='raw_data'):
+		none = lambda x: 'None' if x == None else x
+		file_name = self.name_user_file(file_name)
+		with open('%s/%s' % (self.user_folder_name,
+											file_name), 'w') as us_file:
+			[us_file.write((','.join(x) + '\n')) for x in users_data]
+			us_file.close()
+			# CryptObject.encrypt_file(self.user_folder_name,
+			# 				'%s/%s' % (self.user_folder_name, file_name))
+
+	def name_user_file(self, file_name):
+		cr_date = str(datetime.now())
+		cr_date = '_' + cr_date.split('.')[0]
+		file_name = file_name + cr_date.replace(' ', '_') + '.txt'
+		return file_name
 
 	# def show_data():
 	# 	data = colect_users_data_for_last_7_days()
@@ -206,7 +252,9 @@ class UserSearch(object):
 
 if __name__ == '__main__':
 	user = UserSearch()
-	user.login()
+	# user.login()
+	# print user.user_folder_name
+	user.search_tweets()
 	# print sort_data(3)
 	# show_data()
 	# print colect_users_data_for_last_7_days(), len(colect_users_data_for_last_7_days())

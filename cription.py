@@ -112,6 +112,7 @@ class CryptObject(object):
 			output_filename:
 				if None, '<input_filename>.enc' will be used.
 		'''
+		key = hashlib.sha256(passwd).digest()
 		if not output_filename:
 			output_filename = input_filename.split('.')[0] + '.enc'
 
@@ -141,6 +142,7 @@ class CryptObject(object):
 			output_filename:
 				If name None, than '<input_filename>.dec'
 		'''
+		key = hashlib.sha256(passwd).digest()
 		if not output_filename:
 			output_filename = input_filename.split('.')[0] + '.dec'
 
