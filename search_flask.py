@@ -2,8 +2,9 @@
 
 import os
 import socket
+import sys
 
-from flask import Flask, render_template, session, redirect, url_for, flash
+from flask import Flask, render_template, session, redirect, url_for, flash, request
 from flask.ext.bootstrap import Bootstrap
 from flask.ext.wtf import Form
 from wtforms import PasswordField, StringField, SubmitField
@@ -11,6 +12,7 @@ from wtforms.validators import Required
 
 from cription import CryptObject
 from search import UserSearch
+
 
 class MyForm(Form):
 	name = StringField('Login', validators=[Required()])
@@ -38,9 +40,8 @@ credentials = CryptObject()
 def index():
 	form = MyForm()
 	if form.validate_on_submit():
-		# old_name = session.get('name')
-		# if old_name is not None and old_name != form.name.data:
-		# 	flash('Looks like you have change your name!')
+		form.name.data = str(form.name.data)
+		form.password.data = str(form.password.data)
 		session['name'] = form.name.data
 		cred_data = [x[:-1] for x in open(user.credentials_file, 'r')			#add valid credential
 					if credentials.decrypt_user_credentials(form.name.data, 	#validation credentials
@@ -59,9 +60,19 @@ def index():
 @app.route('/user/<name>', methods=['GET', 'POST'])
 def user_page(name):
 	form = MySearch()
-	form.search.data = ''
-	# session['name'] = form.name.data	
-	dir_list = os.listdir(user.user_folder_name)
+	if form.validate_on_submit():
+		phrase = str(form.search.data)
+		data = user.colect_users_data_for_last_7_days(phrase)
+		# form.search.data = ''
+		if data:
+			return render_template('search_result.html', form=form,
+							phrase=phrase, name=session['name'], data=data)
+		return redirect(url_for('user_page', name=session.get('name')))
+	# session['name'] = form.name.data
+	try:
+		dir_list = os.listdir(user.user_folder_name)
+	except:
+		return redirect(url_for('index'))
 	return render_template('user1.html', form=form,
 							name=session['name'], dir_list=dir_list)
 
@@ -84,6 +95,16 @@ def registration():
 		form.password2.data = ''
 		return redirect(url_for('index'))
 	return render_template('registration.html', form=form)
+
+@app.route('/user/<name>/<us_file>', methods=['GET', 'POST'])
+def user_file(name, us_file):
+	data = open('%s/%s' % (user.user_folder_name, us_file))
+	# print user.user_folder_name, type(user.user_folder_name)
+	# print us_file, type(us_file)
+	line = [x for x in data]
+	# print line
+	return app.send_static_file('%s/%s' % (user.user_folder_name, us_file))
+	return render_template('file.html', data=line)
 
 @app.errorhandler(404)
 def page_not_found(e):

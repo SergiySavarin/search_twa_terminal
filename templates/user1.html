@@ -2,7 +2,9 @@
 {% extends "base.html" %}
 {% import "bootstrap/wtf.html" as wtf %}
 
-{% block title %}Flasky{% endblock %}
+{% block title %}
+	{% if name %}{{ name }}{{ else }}Welcome{% endif %}
+{% endblock %}
 
 {% block page_content %}
 <div class="page-header">
@@ -14,8 +16,8 @@
 	{% if dir_list == [] %}
 		<p>Not found any files</p>
 	{% else %}
-		{% for file in dir_list %}
-			<p>{{ file }}</p>
+		{% for us_file in dir_list %}
+			<p><a href="/user/{{ name }}/{{ us_file }}">{{ us_file }}</a></p>
 		{% endfor %}
 	{% endif %}
 {{ wtf.quick_form(form) }}
